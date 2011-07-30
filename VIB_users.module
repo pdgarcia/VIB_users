@@ -1,0 +1,375 @@
+<?php
+/**
+ * Display help and module information
+ * @param path which path of the site we're displaying help
+ * @param arg array that holds the current path as would be returned from arg() function
+ * @return help text for the path
+ */
+function VIB_users_help($path, $arg) {
+  $output = ''; //declare your output variable
+  switch ($path) {
+    case "admin/help#VIB_users":
+      $output = '<p>' . t("Display Most Active Users") . '</p>';
+      break;
+  }
+  return $output;
+} // function VIB_users_help
+
+/**
+ * Valid permissions for this module
+ * @return array An array of valid permissions for the VIB_users module
+ */
+function VIB_users_permission() {
+  return array('access VIB Users content' => array(
+      'title' => t('access VIB Users content'),
+    ));
+} // function VIB_users_perm()
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_block_info() {
+  $blocks['VIB_ever']['info'] = t('VIB:Display Most Active Users Ever');
+  $blocks['VIB_ever']['cache'] = DRUPAL_CACHE_GLOBAL;
+  $blocks['VIB_week']['info'] = t('VIB:Display Most Active Users in the Last Week');
+  $blocks['VIB_week']['cache'] = DRUPAL_CACHE_GLOBAL;
+  return $blocks;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_block_view($delta = 'VIB_ever') {
+  $block = array();
+  
+  if (user_access('access VIB Users content') && (arg(2) == '' || arg(2) == 'view')) {
+    drupal_add_css(drupal_get_path('module', 'VIB_users') . '/VIB_users.css');
+
+    // generate a unique cache id
+    $cid = $delta . "_Block";
+    // try to retrieve this from the cache
+    $cached = cache_get($cid,'cache_block');
+    if ($cached && $cached->expire > time()) {
+      // return cached value since it's not expired
+        firep($cached->data,"VIB_Block:Cache valido");
+      return $cached->data;
+    }
+    
+    firep("VIB_Block:Generando, Cache no valida");
+    
+    $block_content = '';
+    $showadmin = variable_get("VIB_users_showadmin", FALSE);
+    $limitnum = variable_get("VIB_users_maxdisp", 3);
+    $preset = variable_get("VIB_users_imgblock_preset", "thumbnail");
+
+    switch ($delta) {
+      case 'VIB_ever':
+        $block['subject'] = t('VIB Users Ever');
+        $query = "
+	      SELECT (COUNT(DISTINCT(n.nid)) + COUNT(DISTINCT(c.cid))) count, u.uid
+	      FROM {users} u
+	      LEFT JOIN {node} n ON u.uid = n.uid
+	      LEFT JOIN {comment} c ON c.uid = u.uid
+	      WHERE u.uid <> 0
+	        AND (n.uid = u.uid OR c.uid = u.uid)
+	        AND u.status = 1
+	      GROUP BY n.uid
+	      ORDER BY count DESC";
+        $active_forever_result = db_query_range($query, 0, $limitnum);
+        $list = array();
+        foreach ($active_forever_result as $row) {
+          if (!($row->uid ==1 && ! $showadmin)) {
+            $account = user_load($row->uid);
+            if (!empty($account->picture)) {
+              if (is_numeric($account->picture)) {
+                $picture = file_load($account->picture);
+              }
+              if (!empty($account->picture->uri)) {
+                $picture = $account->picture->uri;
+              }
+            }
+            elseif (variable_get('user_picture_default', '')) {
+              $picture = variable_get('user_picture_default', '');
+            }
+            $attributes = array(
+              'attributes' => array('title' => t('View user profile.')),
+              'html' => TRUE,
+            );
+            $alt = t("@user's picture (@count)", array('@user' => format_username($account), '@count' => $row->count));
+            $block_content .= l(theme('image_style', array('style_name' => $preset, 'path' => $picture, 'alt' => $alt, 'title' => $alt)), "user/$account->uid", $attributes);
+          }
+        }
+        break;
+      case 'VIB_week':
+        $block['subject'] = t('VIB Users in Last Week');
+        $query = "
+          SELECT uid, SUM(count) sum FROM (
+          (
+          SELECT u.uid, COUNT(DISTINCT(n.nid)) count
+            FROM {users} u
+	        LEFT JOIN {node} n ON u.uid = n.uid
+	        WHERE u.uid <> 0
+	          AND n.created > ? - (7 * 24 * 60 * 60)
+	        GROUP BY u.uid
+	        ) UNION (
+	        SELECT u.uid, COUNT(DISTINCT(c.cid)) count
+	        FROM {users} u
+	        LEFT JOIN {comment} c ON c.uid = u.uid
+	        WHERE u.uid <> 0
+	          AND c.created > ? - (7 * 24 * 60 * 60)
+	        GROUP BY u.uid
+	        )
+	        ORDER BY count DESC
+	        ) as x
+	      GROUP BY uid
+	      ORDER BY sum DESC";
+        $active_forever_result = db_query_range($query, 0, $limitnum, array(time(), time()) );
+        $list = array();
+        foreach ($active_forever_result as $row) {
+          if (!($row->uid ==1 && ! $showadmin)) {
+              $account = user_load($row->uid);
+              if (!empty($account->picture)) {
+                if (is_numeric($account->picture)) {
+                  $picture = file_load($account->picture);
+                }
+                if (!empty($account->picture->uri)) {
+                  $picture = $account->picture->uri;
+                }
+              }
+              elseif (variable_get('user_picture_default', '')) {
+                $picture = variable_get('user_picture_default', '');
+              }
+              $attributes = array(
+                  'attributes' => array('title' => t('View user profile.')),
+                  'html' => TRUE,
+                );
+              $alt = t("@user's picture (@sum)", array('@user' => format_username($account), '@sum' => $row->sum));
+              $block_content .= l(theme('image_style', array('style_name' => $preset, 'path' => $picture, 'alt' => $alt, 'title' => $alt)), "user/$account->uid", $attributes);
+          }
+        }
+      }
+    $block_content .= theme('more_link', array('url' => 'VIB_users', 'title' => t("More active users.")));
+
+    if ($block_content == '') {
+      $block['content'] = 'Sorry No Content';
+    }
+    else {
+      $block['content'] = $block_content;
+    }
+      // save this data with a time to live of 15 minutes
+    cache_set($cid, $block, 'cache_block',time() + (60*15));
+    return $block;
+  }
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+
+function VIB_users_all() {
+  if (!user_access('access VIB Users content')) {
+    drupal_access_denied();
+  }
+  
+  drupal_add_css(drupal_get_path('module', 'VIB_users') . '/VIB_users.css');
+  drupal_add_js(drupal_get_path('module', 'VIB_users') . '/VIB_users.js');
+  
+  // generate a unique cache id
+  $cid = "VIB_users_all_Page";
+  // try to retrieve this from the cache
+  $cached = cache_get($cid,'cache_page');
+  if ($cached && $cached->expire > time()) {
+    // return cached value since it's not expired
+      firep($cached->data,"VIB_Page:Cache valido");
+    return $cached->data;
+  }
+
+  firep("VIB_Page:Generando, Cache no valida");
+
+  // content variable that will be returned for display
+  $page_content = '';
+  $showadmin = variable_get("VIB_users_showadmin", FALSE);
+  //$limitnum = variable_get("VIB_users_maxdisp", 3);
+  $preset = variable_get("VIB_users_imgpage_preset", "thumbnail");
+
+  $page_content .= '<h4>' . t('VIB Users Ever') . '</h4>';
+  $query = "
+    SELECT (COUNT(DISTINCT(n.nid)) + COUNT(DISTINCT(c.cid))) count, u.uid
+    FROM {users} u
+    LEFT JOIN {node} n ON u.uid = n.uid
+    LEFT JOIN {comment} c ON c.uid = u.uid
+    WHERE u.uid <> 0
+      AND (n.uid = u.uid OR c.uid = u.uid)
+      AND u.status = 1
+    GROUP BY n.uid
+    ORDER BY count DESC";
+  $active_forever_result = db_query_range($query, 0, 20);
+  $list = array();
+  foreach ($active_forever_result as $row) {
+    if (!($row->uid ==1 && ! $showadmin)) {
+      $account = user_load($row->uid);
+        if (!empty($account->picture)) {
+          if (is_numeric($account->picture)) {
+            $picture = file_load($account->picture);
+          }
+          if (!empty($account->picture->uri)) {
+            $picture = $account->picture->uri;
+          }
+        }
+        elseif (variable_get('user_picture_default', '')) {
+          $picture = variable_get('user_picture_default', '');
+        }
+        $lattributes = array(
+          'attributes' => array('title' => t('View user profile.')),
+          'html' => TRUE,
+        );
+        $alt = t("@user's picture (@count)", array('@user' => format_username($account), '@count' => $row->count));
+        $iattributes = array('class' => 'VIB-Page-img');
+        $page_content .= l(theme('image_style', array('style_name' => $preset, 'path' => $picture, 'alt' => $alt, 'title' => $alt, 'attributes' => $iattributes ) ), "user/$account->uid", $lattributes);
+    }
+  }
+  $page_content .= '<h4>' . t('VIB Users in Last Week') . '</h4>';
+  $query = "
+  	SELECT uid, SUM(count) sum FROM (
+  	(
+  	SELECT u.uid, COUNT(DISTINCT(n.nid)) count
+  	FROM {users} u
+  	LEFT JOIN {node} n ON u.uid = n.uid
+  	WHERE u.uid <> 0
+  		 AND n.created > ? - (7 * 24 * 60 * 60)
+  	GROUP BY u.uid
+  	) UNION (
+  	SELECT u.uid, COUNT(DISTINCT(c.cid)) count
+  	FROM {users} u
+  	LEFT JOIN {comment} c ON c.uid = u.uid
+  	WHERE u.uid <> 0
+  		 AND c.created > ? - (7 * 24 * 60 * 60)
+  	GROUP BY u.uid
+  	)
+  	ORDER BY count DESC
+  	) as x
+  	GROUP BY uid
+  	ORDER BY sum DESC";
+  $active_forever_result = db_query_range($query, 0, 20, array(time(), time()) );
+  $list = array();
+  foreach ($active_forever_result as $row) {
+    if (!($row->uid ==1 && ! $showadmin)) {
+      $account = user_load($row->uid);
+        if (!empty($account->picture)) {
+          if (is_numeric($account->picture)) {
+            $picture = file_load($account->picture);
+          }
+          if (!empty($account->picture->uri)) {
+            $picture = $account->picture->uri;          }
+        }
+        elseif (variable_get('user_picture_default', '')) {
+          $picture = variable_get('user_picture_default', '');        }
+        $lattributes = array(
+          'attributes' => array('title' => t('View user profile.')),
+          'html' => TRUE,
+        );
+        $alt = t("@user's picture (@sum)", array('@user' => format_username($account), '@sum' => $row->sum));
+        $iattributes = array('class' => 'VIB-Page-img');
+        $page_content .= l(theme('image_style', array('style_name' => $preset, 'path' => $picture, 'alt' => $alt, 'title' => $alt, 'attributes' => $iattributes ) ), "user/$account->uid", $lattributes);
+    }
+  }
+  if ($page_content == '') {
+    $page_content = 'Sorry No Content';
+  }
+  // save this data with a time to live of 15 minutes
+  cache_set($cid, $page_content, 'cache_page',time() + (60*15));
+  // return the page content which we have built
+  return $page_content;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_menu() {
+  $items = array();
+  $items['admin/config/content/VIB_users'] = array(
+    'title' => 'VIB Users module settings',
+    'description' => 'Display Most Active Users settings page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('VIB_users_admin'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['VIB_users'] = array(
+    'title' => 'VIB Users',
+    'page callback' => 'VIB_users_all',
+    'access arguments' => array('access VIB Users content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_admin($form, &$form_state) {
+  $form = array();
+
+  $form['VIB_users_maxdisp'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum number of Users'),
+    '#default_value' => variable_get('VIB_users_maxdisp', 3),
+    '#size' => 2,
+    '#maxlength' => 2,
+    '#description' => t("The maximum number of users to display in the block."),
+    '#required' => TRUE,
+  );
+
+  $form['VIB_users_showadmin'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show superuser in list'),
+    '#default_value' => variable_get('VIB_users_showadmin', FALSE),
+    '#description' => t("Select if Super User is show in the lists.")
+  );
+
+  if (module_exists('image')) {
+    $options = array();
+    foreach (image_styles() as $pid => $preset) {
+      $options[$preset['name']] = $preset['name'];
+    }
+
+    if (!empty($options)) {
+      $form['VIB_users_imgblock_preset'] = array(
+        '#type' => 'select',
+        '#title' => t('Block image default style'),
+        '#default_value' => variable_get('VIB_users_imgblock_preset', 'thumbnail'),
+        '#description' => t('Select a !link to use for the user picture on this block.', array('!link' => l(t('Image style'), 'admin/config/media/image-styles'))),
+        '#required' => FALSE,
+        '#options' => $options,
+      );
+      $form['VIB_users_imgpage_preset'] = array(
+        '#type' => 'select',
+        '#title' => t('Page image default style'),
+        '#default_value' => variable_get('VIB_users_imgpage_preset', 'thumbnail'),
+        '#description' => t('Select a !link to use for the user picture on this page.', array('!link' => l(t('Image style'), 'admin/config/media/image-styles'))),
+        '#required' => FALSE,
+        '#options' => $options,
+      );
+    }
+  }
+  return system_settings_form($form);
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_admin_validate($form, &$form_state) {
+  $maxdisp = $form_state['values']['VIB_users_maxdisp'];
+  if (!is_numeric($maxdisp)) {
+    form_set_error('VIB_users_maxdisp', t('You must enter an integer for the maximum number of users.'));
+  }
+  elseif ($maxdisp <= 0) {
+    form_set_error('VIB_users_maxdisp', t('Maximum number of users must be positive.'));
+  }
+}

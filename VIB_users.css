@@ -1,0 +1,15 @@
+.block-vib-users img {
+  border:4px solid #cc0066;
+  margin:1px;
+  border-radius: 4px;
+  moz-border-radius: 4px;
+  webkit-border-radius: 4px;
+}
+
+.VIB-Page-img {
+  border:5px solid #cc0066;
+  margin:5px;
+  border-radius: 5px;
+  moz-border-radius: 5px;
+  webkit-border-radius: 5px;
+}

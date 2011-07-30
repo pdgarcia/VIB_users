@@ -1,0 +1,17 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the VIB_users module.
+ *
+ */
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function VIB_users_uninstall() {
+  variable_del('VIB_users_imgblock_preset');
+  variable_del('VIB_users_imgpage_preset');
+  variable_del('VIB_users_maxdisp');
+  variable_del('VIB_users_showadmin');
+}

@@ -1,0 +1,7 @@
+name = VIB Users
+description = Show Most Active Users 
+core = 7.x
+version= 1.5
+dependencies[] = image (>7.0)
+files[] = VIB_users.install
+files[] = VIB_users.module
