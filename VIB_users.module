@@ -23,7 +23,7 @@ function VIB_users_permission() {
   return array('access VIB Users content' => array(
       'title' => t('access VIB Users content'),
     ));
-} // function VIB_users_perm()
+} // function VIB_users_permission()
 
 /**
  * @todo Please document this function.
@@ -35,7 +35,7 @@ function VIB_users_block_info() {
   $blocks['VIB_week']['info'] = t('VIB:Display Most Active Users in the Last Week');
   $blocks['VIB_week']['cache'] = DRUPAL_CACHE_GLOBAL;
   return $blocks;
-}
+} // function VIB_users_block_info()
 
 /**
  * @todo Please document this function.
@@ -43,22 +43,22 @@ function VIB_users_block_info() {
  */
 function VIB_users_block_view($delta = 'VIB_ever') {
   $block = array();
-  
+
   if (user_access('access VIB Users content') && (arg(2) == '' || arg(2) == 'view')) {
     drupal_add_css(drupal_get_path('module', 'VIB_users') . '/VIB_users.css');
 
     // generate a unique cache id
     $cid = $delta . "_Block";
     // try to retrieve this from the cache
-    $cached = cache_get($cid,'cache_block');
+    $cached = cache_get($cid, 'cache_block');
     if ($cached && $cached->expire > time()) {
       // return cached value since it's not expired
-        firep($cached->data,"VIB_Block:Cache valido");
+        firep($cached->data, "VIB_Block:Cache valido");
       return $cached->data;
     }
-    
+
     firep("VIB_Block:Generando, Cache no valida");
-    
+
     $block_content = '';
     $showadmin = variable_get("VIB_users_showadmin", FALSE);
     $limitnum = variable_get("VIB_users_maxdisp", 3);
@@ -159,10 +159,10 @@ function VIB_users_block_view($delta = 'VIB_ever') {
       $block['content'] = $block_content;
     }
       // save this data with a time to live of 15 minutes
-    cache_set($cid, $block, 'cache_block',time() + (60*15));
+    cache_set($cid, $block, 'cache_block', time() + (60*15));
     return $block;
   }
-}
+} // function VIB_users_block_view()
 
 /**
  * @todo Please document this function.
@@ -173,17 +173,17 @@ function VIB_users_all() {
   if (!user_access('access VIB Users content')) {
     drupal_access_denied();
   }
-  
+
   drupal_add_css(drupal_get_path('module', 'VIB_users') . '/VIB_users.css');
   drupal_add_js(drupal_get_path('module', 'VIB_users') . '/VIB_users.js');
-  
+
   // generate a unique cache id
   $cid = "VIB_users_all_Page";
   // try to retrieve this from the cache
-  $cached = cache_get($cid,'cache_page');
+  $cached = cache_get($cid, 'cache_page');
   if ($cached && $cached->expire > time()) {
     // return cached value since it's not expired
-      firep($cached->data,"VIB_Page:Cache valido");
+      firep($cached->data, "VIB_Page:Cache valido");
     return $cached->data;
   }
 
@@ -280,10 +280,10 @@ function VIB_users_all() {
     $page_content = 'Sorry No Content';
   }
   // save this data with a time to live of 15 minutes
-  cache_set($cid, $page_content, 'cache_page',time() + (60*15));
+  cache_set($cid, $page_content, 'cache_page', time() + (60*15));
   // return the page content which we have built
   return $page_content;
-}
+} // function VIB_users_all()
 
 /**
  * @todo Please document this function.
@@ -306,7 +306,7 @@ function VIB_users_menu() {
     'type' => MENU_CALLBACK,
   );
   return $items;
-}
+} // function VIB_users_menu()
 
 /**
  * @todo Please document this function.
@@ -358,7 +358,7 @@ function VIB_users_admin($form, &$form_state) {
     }
   }
   return system_settings_form($form);
-}
+} // function VIB_users_admin()
 
 /**
  * @todo Please document this function.
@@ -372,4 +372,4 @@ function VIB_users_admin_validate($form, &$form_state) {
   elseif ($maxdisp <= 0) {
     form_set_error('VIB_users_maxdisp', t('Maximum number of users must be positive.'));
   }
-}
+} // function VIB_users_admin_validate()
