@@ -6,4 +6,3 @@ dependencies[] = image (>7.0)
 configure = admin/config/content/VIB_users
 files[] = VIB_users.install
 files[] = VIB_users.module
-
