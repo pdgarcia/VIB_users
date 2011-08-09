@@ -14,4 +14,4 @@ function VIB_users_uninstall() {
   variable_del('VIB_users_imgpage_preset');
   variable_del('VIB_users_maxdisp');
   variable_del('VIB_users_showadmin');
-}
+} // function VIB_users_uninstall()

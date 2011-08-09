@@ -1,4 +1,5 @@
 .settings
 .project
-
 .DS_Store
+.tmproj
+VIB_users.tmproj
