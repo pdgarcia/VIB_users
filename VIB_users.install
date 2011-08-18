@@ -6,8 +6,9 @@
  */
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ *
+ * Delete variables used by the module on uninstalation
+ *
  */
 function VIB_users_uninstall() {
   variable_del('VIB_users_imgblock_preset');
